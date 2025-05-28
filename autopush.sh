@@ -1,6 +1,9 @@
-#!/bin/bash
+PS C:/Users/Tecno-Diego/BOT> git status
+On branch main
+Your branch is up to date with 'origin/main'.
 
-cd /root/BOT || exit
-git add .
-git commit -m "Auto-push desde VPS: $(date '+%Y-%m-%d %H:%M:%S')" || exit
-git push origin main
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+        autopush.sh
+
+nothing added to commit but untracked files present (use "git add" to track)
