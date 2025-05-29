@@ -7,21 +7,21 @@ import json
 async def bin(Client, message):
     try:
         gif = "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdXVpdmI0cXVnMjJkMWFwb3NobHUxNjBsNjdkYzRtb2MxdHV6a2NqYSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/vQ0g0Ah0AE5A1quzKt/giphy.gif"
-        gif_msg = await message.reply_animation(gif, caption="Consultando información del BIN...", reply_to_message_id=message.message_id)
+        gif_msg = await message.reply_animation(gif, caption="Consultando información del BIN...", reply_to_message_id=message.id)
+
         await Client.send_chat_action(message.chat.id, "typing")
 
+        # Obtener texto para analizar
         if message.reply_to_message and message.reply_to_message.text:
             message_text = message.reply_to_message.text
         else:
             message_text = message.text
 
         user_obj = message.from_user
-        if not user_obj or isinstance(user_obj, str):
-            await gif_msg.edit_caption("❌ No se pudo identificar al usuario correctamente (from_user no válido).")
-            return
 
-        if not hasattr(user_obj, "id") or not hasattr(user_obj, "first_name"):
-            await gif_msg.edit_caption("❌ Información del usuario incompleta (faltan atributos).")
+        # Validación estricta de usuario para evitar errores
+        if not user_obj or not hasattr(user_obj, "id") or not hasattr(user_obj, "first"):
+            await gif_msg.edit_caption("❌ No se pudo identificar al usuario correctamente (from_user no válido).")
             return
 
         user = await maindb.find_one({"_id": user_obj.id})
@@ -40,12 +40,13 @@ async def bin(Client, message):
             await gif_msg.edit_caption("❌ El BIN es inválido.")
             return
 
+        # Consultar API externa
         req = requests.get(f"https://adyen-enc-and-bin-info.herokuapp.com/bin/{bin_code}")
         if req.status_code == 200:
             j = req.json()
             rol = user.get('role', 'Usuario')
             user_id = user_obj.id
-            nombre = user_obj.first_name
+            nombre = user_obj.first
             texto = f"""
 <b>【〄】 BIN:</b> <code>{j['data']['bin']}</code>
 <b>【〄】 Vendor:</b> <b>{j['data']['vendor']}</b>

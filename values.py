@@ -17,6 +17,7 @@ maindb = client["mills"]
 users_collection = maindb["users"]
 bins_collection = maindb["bins"]
 
+group_not_allowed = "<b>Este grupo no está autorizado para usar el bot</b>"
 
 antidb = redis.Redis(
     host='redis-17574.c10.us-east-1-4.ec2.redns.redis-cloud.com',
@@ -106,16 +107,41 @@ def save_ccn(lista):
         if str(lista) + "\n" not in file.readlines():
             file.write(str(lista) + "\n")
 
+# --- Encabezados para claves Stripe ---
+def sk_headers(sk_key: str) -> dict:
+    return {
+        "Authorization": f"Bearer {sk_key}",
+        "Content-Type": "application/x-www-form-urlencoded",
+    }
+
+# --- Generador de usuario aleatorio ---
+def random_user():
+    r = requests.get("https://randomuser.me/api/?nat=us&inc=name,location")
+    rd = r.json()["results"][0]
+    return {
+        "first": rd['name']['first'],
+        "last": rd['name']['last'],
+        "address": f"{rd['location']['street']['number']} {rd['location']['street']['name']}",
+        "city": rd['location']['city'],
+        "state": rd['location']['state'],
+        "zip": rd['location']['postcode'],
+    }
+
+# --- Proxy aleatorio desde archivo ---
+def get_proxy():
+    try:
+        with open("files/proxies.txt", "r") as f:
+            lines = f.read().splitlines()
+            if not lines:
+                return None
+            return random.choice(lines)
+    except Exception:
+        return None
+
 # --- Validación principal ---
 def main(cc, mes, ano, cvv):
     req = requests.Session()
-
-    # Datos aleatorios de usuario
-    r = requests.get("https://randomuser.me/api/?nat=us&inc=name,location")
-    rd = r.json()["results"][0]
-    first, last = rd['name']['first'], rd['name']['last']
-    address = f"{rd['location']['street']['number']} {rd['location']['street']['name']}"
-    city, state, zip_code = rd['location']['city'], rd['location']['state'], rd['location']['postcode']
+    user_data = random_user()
     phone = "225" + ''.join(random.choices("0123456789", k=7))
     email = get_email()
     user = get_username()
@@ -141,11 +167,11 @@ def main(cc, mes, ano, cvv):
     return {
         'vendor': vendor,
         'cbid': cbid,
-        'name': f"{first} {last}",
-        'address': address,
-        'city': city,
-        'state': state,
-        'zip': zip_code,
+        'name': f"{user_data['first']} {user_data['last']}",
+        'address': user_data['address'],
+        'city': user_data['city'],
+        'state': user_data['state'],
+        'zip': user_data['zip'],
         'email': email,
         'phone': phone
     }

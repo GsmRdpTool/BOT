@@ -1,44 +1,46 @@
-import math
-import time
-from typing import Text
-import requests
-import logging
-from pyrogram import Client
-from pyrogram.errors import RPCError
-from pyrogram.errors import BadRequest, Forbidden
-logging.basicConfig(level=logging.INFO)
-import time
-from pyrogram.errors import FloodWait
-from pyrogram.handlers import MessageHandler
-import requests	
-import pymongo
-from pymongo.mongo_client import MongoClient
-from pymongo.server_api import ServerApi
-import re
-import sys 
-import os
-from values import *
-from pyrogram import (
-    Client,
-    filters
-)
-import json
-@Client.on_message(filters.command('addbin',prefixes=['.','/','!'],case_sensitive=False) & filters.text)
-async def banbin(Client, message):
-    try:
-        if str(message.from_user.id) + "\n" in admins:
-            file = open('files/bannedbin.txt', 'r') 
-            input = lista(message.text)
-            bin = input[:6]
-            if str(bin) + "\n" not in file.readlines():
-                file = open('files/bannedbin.txt', 'a+') 
-                file.write(str(bin) + "\n")
-                file.close()
-                await message.reply_text(text="<b>BANNED</b>",reply_to_message_id=message.id)
-            else:
-                await message.reply_text(text="<b>ALREADY BANNED</b>",reply_to_message_id=message.id)
-    except IndexError as e:
-        print(e)
-    except Exception as e:
-        print(e)  
+from pyrogram import Client, filters
+from values import lista  # función para separar el texto del mensaje
 
+# Define aquí los IDs de tus administradores como enteros:
+admins = [7731790583, 7731790583]  # <-- Cambia por los IDs reales de tus admins
+
+@Client.on_message(filters.command('addbin', prefixes=['.', '/', '!'], case_sensitive=False) & filters.text)
+async def banbin(client, message):
+    try:
+        user_id = message.from_user.id
+
+        # Verificamos si el usuario es admin
+        if user_id not in admins:
+            await message.reply_text("<b>No tienes permisos para usar este comando.</b>", reply_to_message_id=message.id)
+            return
+
+        # Obtenemos argumentos (debe venir el BIN después del comando)
+        args = lista(message.text)  # lista devuelve lista de palabras
+        if len(args) < 2:
+            await message.reply_text("<b>Por favor, especifica un BIN válido.</b>", reply_to_message_id=message.id)
+            return
+
+        bin_code = args[1][:6]  # Solo primeros 6 dígitos del BIN
+
+        # Leer BINs baneados desde archivo
+        try:
+            with open('files/bannedbin.txt', 'r') as f:
+                banned_bins = [line.strip() for line in f.readlines()]
+        except FileNotFoundError:
+            # Si el archivo no existe, se asume vacío
+            banned_bins = []
+
+        # Verificamos si el BIN ya está baneado
+        if bin_code in banned_bins:
+            await message.reply_text("<b>Este BIN ya está baneado.</b>", reply_to_message_id=message.id)
+            return
+
+        # Añadimos el BIN al archivo
+        with open('files/bannedbin.txt', 'a') as f:
+            f.write(bin_code + "\n")
+
+        await message.reply_text("<b>BIN baneado correctamente.</b>", reply_to_message_id=message.id)
+
+    except Exception as e:
+        print(f"Error en comando addbin: {e}")
+        await message.reply_text("<b>Ocurrió un error al procesar el comando.</b>", reply_to_message_id=message.id)
