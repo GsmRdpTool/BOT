@@ -13,7 +13,10 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 # --- Configuración de bases de datos ---
 mongourl = 'mongodb+srv://root:1ikHUYGDhXqAq8Ox@cluster0.unejfbx.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0'
 client = pymongo.MongoClient(mongourl, serverSelectionTimeoutMS=5000)
-maindb = client["mills"]["users"][""]
+maindb = client["mills"]
+users_collection = maindb["users"]
+bins_collection = maindb["bins"]
+
 
 antidb = redis.Redis(
     host='redis-17574.c10.us-east-1-4.ec2.redns.redis-cloud.com',

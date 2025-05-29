@@ -6,6 +6,7 @@ from values import ccs, banned_bins, maindb
 import random
 
 bins_collection = maindb["bins"]
+users_collection = maindb["users"]
 
 def get_country_name(code):
     try:
@@ -37,25 +38,13 @@ def calculate_luhn(partial_card_number: str) -> str:
     return str((10 - checksum) % 10)
 
 def generate_valid_card(bin_pattern: str) -> str:
-    # Determina longitud según el patrón
     clean_bin = bin_pattern.replace('x', '0').replace('X', '0')
-    if clean_bin.startswith(("34", "37")):
-        length = 15
-    else:
-        length = 16
-
+    length = 15 if clean_bin.startswith(("34", "37")) else 16
     card_number = ''
     for char in bin_pattern:
-        if char.lower() == 'x':
-            card_number += str(random.randint(0, 9))
-        else:
-            card_number += char
-
-    # Completar si faltan dígitos
+        card_number += str(random.randint(0, 9)) if char.lower() == 'x' else char
     while len(card_number) < length - 1:
         card_number += str(random.randint(0, 9))
-
-    # Agregar dígito Luhn
     check_digit = calculate_luhn(card_number)
     return card_number + check_digit
 
@@ -65,9 +54,7 @@ def generate_expiry():
     return f"{month:02d}", str(year)
 
 def generate_cvv(card_number):
-    if len(card_number) == 15:
-        return f"{random.randint(1000, 9999)}"
-    return f"{random.randint(100, 999)}"
+    return f"{random.randint(1000, 9999)}" if len(card_number) == 15 else f"{random.randint(100, 999)}"
 
 def cc_gen(bin_code, mes='x', ano='x', cvv='x'):
     card = generate_valid_card(bin_code)
@@ -78,16 +65,21 @@ def cc_gen(bin_code, mes='x', ano='x', cvv='x'):
     tarjeta = f"{card}|{mes}|{ano}|{cvv}"
     ccs.append(tarjeta)
 
-
 @Client.on_message(filters.command(["gen", "make"], [".", "/", "!"]))
 async def gen(client, message):
     try:
         text = message.reply_to_message.text if message.reply_to_message else message.text
 
-        user_data = maindb.find_one({"_id": message.from_user.id})
+        user_id = message.from_user.id
+        user_data = users_collection.find_one({"_id": user_id})
         if not user_data:
-            await message.reply("❌ No estás registrado en la base de datos.")
-            return
+            users_collection.insert_one({
+                "_id": user_id,
+                "username": message.from_user.username or "",
+                "role": "Free",
+                "credits": 0
+            })
+            user_data = users_collection.find_one({"_id": user_id})
 
         input_data = re.findall(r"[0-9xX]+", text)
         cc = mes = ano = cvv = 'x'
@@ -149,7 +141,6 @@ async def gen(client, message):
 
         rol = user_data.get("role", "Free")
         nombre = message.from_user.first_name
-        user_id = message.from_user.id
 
         texto = f"""
 <b>════════════════════</b>
