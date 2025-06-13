@@ -25,7 +25,7 @@ antidb = redis.Redis(
     password='MILUDQruVeqxBoO0G0eLdAP9V45R0td2'
 )
 
-BOT_USERNAME = '@SongChk_bot'
+BOT_USERNAME = '@CzTanjiroChk_Bot'
 loggp = -1002683802090
 waste_cards = [1, 2, 7, 8, 9, 0]
 
