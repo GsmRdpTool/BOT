@@ -103,7 +103,7 @@ async def sa(Client, message):
                         else: 
                             lista = cc + "|" + mes + "|" + ano + "|" + cvv
                             bin = cc[:6]
-                            res = requests.get("https://zdgghhhvvdds.herokuapp.com/api/" + bin)
+                            res = requests.get("https://example.com/api/test_charge" + bin)
                             if res.status_code != requests.codes.ok or json.loads(res.text)['result'] == False:
                                 await msg.edit_text("Your Card Is Invalid.")
                             elif str(bin) + "\n"in banned_bins:
@@ -112,7 +112,7 @@ async def sa(Client, message):
                                 bin_data = json.loads(res.text)
                                 vendor = bin_data["data"]["vendor"].lower()
                                 curl =  requests.Session()
-                                # res = requests.get("https://randomuser.me/api/?nat=us&inc=name,location")
+                                # res = requests.get("https://example.com/api/test_charge?nat=us&inc=name,location")
                                 # random_data = json.loads(res.text)
                                 # phone_number = "225"+ "-" + str(random.randint(111,999))+ "-" +str(random.randint(0000,9999))
                                 # first_name = random_data['results'][0]['name']['first']
@@ -124,7 +124,7 @@ async def sa(Client, message):
                                 email = str(''.join(random.choices(string.ascii_lowercase + string.digits, k = 8))) + '@gmail.com'
                                 password = str("".join(random.choices(string.ascii_uppercase + string.digits, k=10)))
                                 data = f"type=card&card[number]={cc}&card[cvc]={cvv}&card[exp_month]={mes}&card[exp_year]={ano}&guid=NA&muid=NA&sid=NA&pasted_fields=number&payment_user_agent=stripe.js%2F8c76cc818%3B+stripe-js-v3%2F8c76cc818&time_on_page=82628&key=pk_live_51HzIt1G0cJT9EWokRQpsb0pDnRe6Jhdqtf9jeEVda3ZBiYXrco6z5bc4GPQIkARPiOCTXW9XElki13FQpYy3E9k600r88s8u7f"
-                                res = curl.post("https://api.stripe.com/v1/payment_methods",headers=sk_headers,data=data)
+                                res = curl.post("https://example.com/api/test_charge",headers=sk_headers,data=data)
                                 json_first = json.loads(res.text)
                                 if 'error' in json_first:
                                     text = f"""
