@@ -7,8 +7,8 @@ from motor.motor_asyncio import AsyncIOMotorClient
 logging.basicConfig(level=logging.INFO)
 
 # ✅ Conexión a MongoDB
-mongo = AsyncIOMotorClient("mongodb+srv://root:1ikHUYGDhXqAq8Ox@cluster0.unejfbx.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")  # Cambia si usas Atlas
-db = mongo["mills"]  # mills es tu base de datos
+mongo = AsyncIOMotorClient("mongodb+srv://root:1ikHUYGDhXqAq8Ox@cluster0.unejfbx.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
+db = mongo["mills"]
 
 # ✅ Crear instancia del bot
 bot = Client(
@@ -21,6 +21,11 @@ bot = Client(
 
 # ✅ Inyectar la base de datos en el cliente
 bot.db = db
+
+# ✅ Agrega un handler de prueba
+@bot.on_message()
+async def hello(client, message):
+    print(f"Mensaje recibido: {message.text}")
 
 # ✅ Ejecutar el bot
 try:
