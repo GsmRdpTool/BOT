@@ -15,7 +15,7 @@ bot = Client(
     "bot",
     api_id=23361603,
     api_hash="01f4d3cb3732b8ffdaadfd3843ffee1d",
-    bot_token="8082652479:AAHGABcgGO7vlvh2RcVyBnzkqwEMd0sD5is",
+    bot_token="7942809098:AAFLPoxwQuWviZxVxC_rCdoUC9p0R7f6a1k",
     plugins=dict(root="plugins"),
 )
 
